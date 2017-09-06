@@ -36,6 +36,7 @@ public class SudokuView extends View {
         }
     }
 
+    SudokuGame game_;
     float cellSize_;
     boolean landscape_;
     int pen_;
@@ -43,21 +44,24 @@ public class SudokuView extends View {
     public SudokuView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
+        game_ = new SudokuGame();
         cellSize_ = 0;
         pen_ = 0;
         calcSizes();
     }
 
     public String gameState() {
-        return "WOO";
+        return game_.save();
     }
 
     public void setGameState(String state) {
         Log.d(TAG, "setGameState");
+        game_.load(state);
     }
 
     public void newGame() {
         Log.d(TAG, "newGame");
+        game_.newGame();
     }
 
     protected void calcSizes() {
@@ -84,15 +88,22 @@ public class SudokuView extends View {
         canvas.drawText(text, cx - textBounds.exactCenterX(), cy - textBounds.exactCenterY(), paint);
     }
 
-    static final int DC_SELECTED = 1 << 0;
+    static final int DC_LOCKED = 1 << 0;
+    static final int DC_SELECTED = 1 << 1;
 
-    protected void drawCell(Canvas canvas, int x, int y, String s, int flags) {
+    protected void drawCell(Canvas canvas, int x, int y, int v, int flags) {
         float px = x * cellSize_;
         float py = y * cellSize_;
         if ((flags & DC_SELECTED) != 0) {
             canvas.drawRect(px, py, px + cellSize_, py + cellSize_, Style.SELECTED.paint);
         }
-        drawTextCentered(canvas, Style.BLACK.paint, s, px + (cellSize_ / 2), py + (cellSize_ / 2));
+        if (v != 0) {
+            Paint p = Style.BLUE.paint;
+            if ((flags & DC_LOCKED) != 0) {
+                p = Style.BLACK.paint;
+            }
+            drawTextCentered(canvas, p, Integer.toString(v), px + (cellSize_ / 2), py + (cellSize_ / 2));
+        }
     }
 
     protected void onDraw(Canvas canvas) {
@@ -100,7 +111,11 @@ public class SudokuView extends View {
 
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                drawCell(canvas, i, j, Integer.toString(9), 0);
+                SudokuGame.Cell cell = game_.grid[i][j];
+                int flags = 0;
+                if (cell.locked)
+                    flags |= DC_LOCKED;
+                drawCell(canvas, i, j, game_.grid[i][j].value, flags);
             }
         }
 
@@ -134,20 +149,20 @@ public class SudokuView extends View {
         if (landscape_) {
             for (int i = 0; i < 9; ++i) {
                 int flags = 0;
-                if(i+1 == pen_) {
+                if (i + 1 == pen_) {
                     flags = DC_SELECTED;
                 }
-                drawCell(canvas, 10, i, Integer.toString(i + 1), flags);
+                drawCell(canvas, 10, i, i + 1, flags);
             }
             canvas.drawLine(cellSize_ * 10.0f, 0, cellSize_ * 10.0f, cellSize_ * 9.0f, Style.THICK.paint);
             canvas.drawLine(cellSize_ * 11.0f, 0, cellSize_ * 11.0f, cellSize_ * 9.0f, Style.THICK.paint);
         } else {
             for (int i = 0; i < 9; ++i) {
                 int flags = 0;
-                if(i+1 == pen_) {
+                if (i + 1 == pen_) {
                     flags = DC_SELECTED;
                 }
-                drawCell(canvas, i, 10, Integer.toString(i + 1), flags);
+                drawCell(canvas, i, 10, i + 1, flags);
             }
             canvas.drawLine(0, cellSize_ * 10.0f, cellSize_ * 9.0f, cellSize_ * 10.0f, Style.THICK.paint);
             canvas.drawLine(0, cellSize_ * 11.0f, cellSize_ * 9.0f, cellSize_ * 11.0f, Style.THICK.paint);
@@ -158,20 +173,29 @@ public class SudokuView extends View {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             calcSizes();
 
-            int x = (int)Math.floor(event.getX() / cellSize_);
-            int y = (int)Math.floor(event.getY() / cellSize_);
-            if(landscape_) {
-                if(x > 10) {
-                    pen_ = 0;
-                } else  if(x == 10) {
-                    pen_ = y+1;
-                }
+            int x = (int) Math.floor(event.getX() / cellSize_);
+            int y = (int) Math.floor(event.getY() / cellSize_);
+            if ((x < 9) && (y < 9)) {
+                // Clicking on grid
+                game_.poke(x, y, pen_);
             } else {
-                if(y > 10) {
-                    pen_ = 0;
-                } else  if(y == 10) {
-                    pen_ = x+1;
+                // Clicking outside of grid (perhaps in pen area?)
+                if (landscape_) {
+                    if (x > 10) {
+                        pen_ = 0;
+                    } else if (x == 10) {
+                        pen_ = y + 1;
+                    }
+                } else {
+                    if (y > 10) {
+                        pen_ = 0;
+                    } else if (y == 10) {
+                        pen_ = x + 1;
+                    }
                 }
+            }
+            if (pen_ > 9) {
+                pen_ = 9;
             }
 
             invalidate();
