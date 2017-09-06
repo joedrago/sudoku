@@ -13,7 +13,8 @@ import android.view.View;
 public class SudokuView extends View {
     private static String TAG = "SudokuView";
 
-    private final float FONT_SCALE = 0.8f;
+    private final float NUMBER_SCALE = 0.8f;
+    private final float PENCIL_SCALE = 0.3f;
 
     public enum Style {
         BLACK(0xff000000),
@@ -21,7 +22,8 @@ public class SudokuView extends View {
         RED(0xffff0000),
 
         SELECTED(0xffeeeeaa),
-        THICK(0xff000000); // thick black
+        THICK(0xff000000), // thick black
+        PENCIL(0xff0000ff);
 
         int color;
         Paint paint;
@@ -73,9 +75,10 @@ public class SudokuView extends View {
         if (cellSize_ != newCellSize) {
             cellSize_ = newCellSize;
             for (Style s : Style.values()) {
-                s.paint.setTextSize(cellSize_ * FONT_SCALE);
+                s.paint.setTextSize(cellSize_ * NUMBER_SCALE);
             }
             Style.THICK.paint.setStrokeWidth(cellSize_ / 15.0f);
+            Style.PENCIL.paint.setTextSize(cellSize_ * PENCIL_SCALE);
         }
 
         landscape_ = (w > h);
@@ -91,13 +94,17 @@ public class SudokuView extends View {
     static final int DC_LOCKED = 1 << 0;
     static final int DC_SELECTED = 1 << 1;
 
-    protected void drawCell(Canvas canvas, int x, int y, int v, int flags) {
+    protected void drawCell(Canvas canvas, int x, int y, int v, int flags, String pencil) {
         float px = x * cellSize_;
         float py = y * cellSize_;
         if ((flags & DC_SELECTED) != 0) {
             canvas.drawRect(px, py, px + cellSize_, py + cellSize_, Style.SELECTED.paint);
         }
-        if (v != 0) {
+        if (v == 0) {
+            if(pencil.length() > 0) {
+                drawTextCentered(canvas, Style.PENCIL.paint, pencil, px + (cellSize_ / 2), py + (cellSize_ / 2));
+            }
+        } else {
             Paint p = Style.BLUE.paint;
             if ((flags & DC_LOCKED) != 0) {
                 p = Style.BLACK.paint;
@@ -115,7 +122,7 @@ public class SudokuView extends View {
                 int flags = 0;
                 if (cell.locked)
                     flags |= DC_LOCKED;
-                drawCell(canvas, i, j, game_.grid[i][j].value, flags);
+                drawCell(canvas, i, j, game_.grid[i][j].value, flags, game_.grid[i][j].pencil);
             }
         }
 
@@ -152,7 +159,7 @@ public class SudokuView extends View {
                 if (i + 1 == pen_) {
                     flags = DC_SELECTED;
                 }
-                drawCell(canvas, 10, i, i + 1, flags);
+                drawCell(canvas, 10, i, i + 1, flags, "");
             }
             canvas.drawLine(cellSize_ * 10.0f, 0, cellSize_ * 10.0f, cellSize_ * 9.0f, Style.THICK.paint);
             canvas.drawLine(cellSize_ * 11.0f, 0, cellSize_ * 11.0f, cellSize_ * 9.0f, Style.THICK.paint);
@@ -162,7 +169,7 @@ public class SudokuView extends View {
                 if (i + 1 == pen_) {
                     flags = DC_SELECTED;
                 }
-                drawCell(canvas, i, 10, i + 1, flags);
+                drawCell(canvas, i, 10, i + 1, flags, "");
             }
             canvas.drawLine(0, cellSize_ * 10.0f, cellSize_ * 9.0f, cellSize_ * 10.0f, Style.THICK.paint);
             canvas.drawLine(0, cellSize_ * 11.0f, cellSize_ * 9.0f, cellSize_ * 11.0f, Style.THICK.paint);
