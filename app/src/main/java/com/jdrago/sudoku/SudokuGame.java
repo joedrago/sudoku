@@ -4,12 +4,24 @@ public class SudokuGame {
     public class Cell {
         int value;
         boolean locked;
-        String pencil;
+        boolean error;
+        boolean pencil[];
 
         public Cell(int v, boolean l) {
             value = v;
             locked = l;
-            pencil = "";
+            error = false;
+            pencil = new boolean[9];
+        }
+
+        public String pencilString() {
+            String s = "";
+            for(int i = 0; i < 9; ++i) {
+                if(pencil[i]) {
+                    s += Integer.toString(i + 1);
+                }
+            }
+            return s;
         }
     }
 
@@ -33,26 +45,46 @@ public class SudokuGame {
         load("0000L7L1L2L80L9L1L8000L70L50L200L5L800L300L50L6L40L70000L70L90000L40L1L30L800L500L8L900L20L60L4000L9L3L70L7L9L6L40000");
     }
 
-    public void poke(int x, int y, int v) {
+    public void setValue(int x, int y, int v) {
         Cell cell = grid[x][y];
         if(!cell.locked) {
             cell.value = v;
         }
-        updatePencilMarks();
+        updateCells();
     }
 
-    public String calcPencilMarks(int x, int y) {
-        boolean taken[] = new boolean[9];
+    public void togglePencil(int x, int y, int v) {
+        Cell cell = grid[x][y];
+        if(!cell.locked) {
+            cell.pencil[v-1] = !cell.pencil[v-1];
+        }
+        updateCells();
+    }
+
+    public void updateCell(int x, int y) {
+        Cell cell = grid[x][y];
+
+//        boolean taken[] = new boolean[9];
         for(int i = 0; i < 9; ++i) {
             if(x != i) {
                 int v = grid[i][y].value;
-                if (v > 0)
-                    taken[v-1] = true;
+                if (v > 0) {
+//                    taken[v - 1] = true;
+                    if(v == cell.value) {
+                        grid[i][y].error = true;
+                        cell.error = true;
+                    }
+                }
             }
             if(y != i) {
                 int v = grid[x][i].value;
-                if (v > 0)
-                    taken[v-1] = true;
+                if (v > 0) {
+//                    taken[v - 1] = true;
+                    if(v == cell.value) {
+                        grid[x][i].error = true;
+                        cell.error = true;
+                    }
+                }
             }
         }
 
@@ -62,25 +94,27 @@ public class SudokuGame {
             for(int i = 0; i < 3; ++i) {
                 if((x != (sx+i)) && (y != (sy+j))) {
                     int v = grid[sx+i][sy+j].value;
-                    if (v > 0)
-                        taken[v-1] = true;
+                    if (v > 0) {
+//                        taken[v - 1] = true;
+                        if(v == cell.value) {
+                            grid[sx+i][sy+j].error = true;
+                            cell.error = true;
+                        }
+                    }
                 }
             }
         }
-
-        String marks = "";
-        for(int i = 0; i < 9; ++i) {
-            if (!taken[i]) {
-                marks += Integer.toString(i+1);
-            }
-        }
-        return marks;
     }
 
-    public void updatePencilMarks() {
+    public void updateCells() {
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                grid[i][j].pencil = calcPencilMarks(i, j);
+                grid[i][j].error = false;
+            }
+        }
+        for (int j = 0; j < 9; ++j) {
+            for (int i = 0; i < 9; ++i) {
+                updateCell(i, j);
             }
         }
     }
@@ -126,6 +160,6 @@ public class SudokuGame {
                     break;
             }
         }
-        updatePencilMarks();
+        updateCells();
     }
 }

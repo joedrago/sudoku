@@ -1,16 +1,10 @@
 package com.jdrago.sudoku;
 
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 
 public class SudokuActivity extends AppCompatActivity {
     private static String TAG = "SudokuActivity";
@@ -42,7 +36,7 @@ public class SudokuActivity extends AppCompatActivity {
 
         super.onSaveInstanceState(savedInstanceState);
     }
-
+/*
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater findMenuItems = getMenuInflater();
@@ -79,4 +73,5 @@ public class SudokuActivity extends AppCompatActivity {
                 });
         alertDialog.show();
     }
+*/
 }

@@ -1,10 +1,12 @@
 package com.jdrago.sudoku;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.support.v7.app.AlertDialog;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -13,23 +15,43 @@ import android.view.View;
 public class SudokuView extends View {
     private static String TAG = "SudokuView";
 
-    private final float NUMBER_SCALE = 0.8f;
-    private final float PENCIL_SCALE = 0.3f;
+    // ----------------------------------------------------------------------------------
+    // Render
+
+    private final int VALUE_POS_X = 1;
+    private final int VALUE_POS_Y = 10;
+    private final int PENCIL_POS_X = 5;
+    private final int PENCIL_POS_Y = 10;
+    private final int NEWGAME_POS_X = 6;
+    private final int NEWGAME_POS_Y = 13;
 
     public enum Style {
-        BLACK(0xff000000),
-        BLUE(0xff0000ff),
-        RED(0xffff0000),
+        BACKGROUND_SELECTED(0xffeeeeaa, 0, 0),
+        BACKGROUND_CONFLICTED(0xffffffdd, 0, 0),
 
-        SELECTED(0xffeeeeaa),
-        THICK(0xff000000), // thick black
-        PENCIL(0xff0000ff);
+        LINE_BLACK_THIN(0xff000000, 0, 0),
+        LINE_BLACK_THICK(0xff000000, 0, 1.0f / 15.0f),
+
+        TEXT_GRID_TITLE(0xff000000, 0.3f, 0),
+        TEXT_LOCKED(0xff000000, 0.8f, 0),
+        TEXT_USER(0xff003333, 0.8f, 0),
+        TEXT_ERROR(0xffff0000, 0.8f, 0),
+        TEXT_PENCIL(0xff0000ff, 0.3f, 0),
+
+        TEXT_BUTTON_VALUE(0xff003333, 0.8f, 0),
+        TEXT_BUTTON_PENCIL(0xff0000ff, 0.8f, 0),
+        TEXT_BUTTON_NEWGAME(0xff008833, 0.4f, 0),
+        TEXT_BUTTON_CLEAR(0xff008833, 0.4f, 0);
 
         int color;
+        float textScale;
+        float lineScale;
         Paint paint;
 
-        private Style(int col) {
+        private Style(int col, float ts, float ls) {
             color = col;
+            textScale = ts;
+            lineScale = ls;
             paint = new Paint();
             paint.setColor(color);
             paint.setTypeface(Typeface.MONOSPACE);
@@ -38,19 +60,89 @@ public class SudokuView extends View {
         }
     }
 
-    SudokuGame game_;
     float cellSize_;
-    boolean landscape_;
-    int pen_;
+
+    // ----------------------------------------------------------------------------------
+    // Actions
+
+    public enum ActionType {
+        SELECT, PENCIL, VALUE, NEWGAME;
+    }
+
+    public class Action {
+
+        private Action(ActionType _type, int _x, int _y) {
+            type = _type;
+            x = _x;
+            y = _y;
+        }
+
+        ActionType type;
+        int x;
+        int y;
+    }
+
+    Action actions_[];
+
+    // ----------------------------------------------------------------------------------
+    // Game
+
+    SudokuGame game_;
+    int selectX_;
+    int selectY_;
+
+    // ----------------------------------------------------------------------------------
+    // Init
 
     public SudokuView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        game_ = new SudokuGame();
         cellSize_ = 0;
-        pen_ = 0;
+
+        initActions();
+
+        game_ = new SudokuGame();
+        selectX_ = -1;
+        selectY_ = -1;
+
         calcSizes();
     }
+
+    public void initActions() {
+        actions_ = new Action[9 * 15];
+
+        for (int j = 0; j < 9; ++j) {
+            for (int i = 0; i < 9; ++i) {
+                int index = (j * 9) + i;
+                actions_[index] = new Action(ActionType.SELECT, i, j);
+            }
+        }
+
+        for (int j = 0; j < 3; ++j) {
+            for (int i = 0; i < 3; ++i) {
+                int index = ((VALUE_POS_Y + j) * 9) + (VALUE_POS_X + i);
+                actions_[index] = new Action(ActionType.VALUE, 1 + (j * 3) + i, 0);
+            }
+        }
+
+        for (int j = 0; j < 3; ++j) {
+            for (int i = 0; i < 3; ++i) {
+                int index = ((PENCIL_POS_Y + j) * 9) + (PENCIL_POS_X + i);
+                actions_[index] = new Action(ActionType.PENCIL, 1 + (j * 3) + i, 0);
+            }
+        }
+
+        // New Game button
+        int index = (NEWGAME_POS_Y * 9) + NEWGAME_POS_X;
+        actions_[index] = new Action(ActionType.NEWGAME, 0, 0);
+
+        // Clear value button
+        index = ((VALUE_POS_Y+3) * 9) + VALUE_POS_X+1;
+        actions_[index] = new Action(ActionType.VALUE, 0, 0);
+    }
+
+    // ----------------------------------------------------------------------------------
+    // Save / Load
 
     public String gameState() {
         return game_.save();
@@ -63,8 +155,31 @@ public class SudokuView extends View {
 
     public void newGame() {
         Log.d(TAG, "newGame");
-        game_.newGame();
+
+        AlertDialog alertDialog = new AlertDialog.Builder(getContext()).create();
+        alertDialog.setTitle("New Game?");
+        alertDialog.setMessage("Are you sure you want to start a new game?");
+        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                        game_.newGame();
+                        invalidate();
+                        selectX_ = -1;
+                        selectY_ = -1;
+                    }
+                });
+        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        alertDialog.show();
     }
+
+    // ----------------------------------------------------------------------------------
+    // Render
 
     protected void calcSizes() {
         float w = getWidth();
@@ -75,13 +190,27 @@ public class SudokuView extends View {
         if (cellSize_ != newCellSize) {
             cellSize_ = newCellSize;
             for (Style s : Style.values()) {
-                s.paint.setTextSize(cellSize_ * NUMBER_SCALE);
+                s.paint.setTextSize(cellSize_ * s.textScale);
+                s.paint.setStrokeWidth(cellSize_ * s.lineScale);
             }
-            Style.THICK.paint.setStrokeWidth(cellSize_ / 15.0f);
-            Style.PENCIL.paint.setTextSize(cellSize_ * PENCIL_SCALE);
+        }
+    }
+
+    protected boolean conflicts(int x1, int y1, int x2, int y2) {
+        // same row or column?
+        if ((x1 == x2) || (y1 == y2))
+            return true;
+
+        // same section?
+        int sx1 = (x1 / 3) * 3;
+        int sy1 = (y1 / 3) * 3;
+        int sx2 = (x2 / 3) * 3;
+        int sy2 = (y2 / 3) * 3;
+        if ((sx1 == sx2) && (sy1 == sy2)) {
+            return true;
         }
 
-        landscape_ = (w > h);
+        return false;
     }
 
     private final Rect textBounds = new Rect();
@@ -91,25 +220,26 @@ public class SudokuView extends View {
         canvas.drawText(text, cx - textBounds.exactCenterX(), cy - textBounds.exactCenterY(), paint);
     }
 
-    static final int DC_LOCKED = 1 << 0;
-    static final int DC_SELECTED = 1 << 1;
-
-    protected void drawCell(Canvas canvas, int x, int y, int v, int flags, String pencil) {
+    protected void drawCell(Canvas canvas, int x, int y, Style backgroundStyle, Style textStyle, String s) {
         float px = x * cellSize_;
         float py = y * cellSize_;
-        if ((flags & DC_SELECTED) != 0) {
-            canvas.drawRect(px, py, px + cellSize_, py + cellSize_, Style.SELECTED.paint);
+        if (backgroundStyle != null) {
+            canvas.drawRect(px, py, px + cellSize_, py + cellSize_, backgroundStyle.paint);
         }
-        if (v == 0) {
-            if(pencil.length() > 0) {
-                drawTextCentered(canvas, Style.PENCIL.paint, pencil, px + (cellSize_ / 2), py + (cellSize_ / 2));
+        drawTextCentered(canvas, textStyle.paint, s, px + (cellSize_ / 2), py + (cellSize_ / 2));
+    }
+
+    protected void drawGrid(Canvas canvas, int originX, int originY, int size) {
+        for (int i = 0; i <= size; ++i) {
+            Style style = Style.LINE_BLACK_THIN;
+            if ((i % 3) == 0) {
+                style = Style.LINE_BLACK_THICK;
             }
-        } else {
-            Paint p = Style.BLUE.paint;
-            if ((flags & DC_LOCKED) != 0) {
-                p = Style.BLACK.paint;
-            }
-            drawTextCentered(canvas, p, Integer.toString(v), px + (cellSize_ / 2), py + (cellSize_ / 2));
+            // Horizontal lines
+            canvas.drawLine(cellSize_ * (originX + 0), cellSize_ * (originY + i), cellSize_ * (originX + size), cellSize_ * (originY + i), style.paint);
+
+            // Vertical lines
+            canvas.drawLine(cellSize_ * (originX + i), cellSize_ * (originY + 0), cellSize_ * (originX + i), cellSize_ * (originY + size), style.paint);
         }
     }
 
@@ -119,62 +249,73 @@ public class SudokuView extends View {
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
                 SudokuGame.Cell cell = game_.grid[i][j];
-                int flags = 0;
-                if (cell.locked)
-                    flags |= DC_LOCKED;
-                drawCell(canvas, i, j, game_.grid[i][j].value, flags, game_.grid[i][j].pencil);
+
+                Style backgroundStyle = null;
+                Style textStyle = null;
+                String text = "";
+                if (cell.value == 0) {
+                    textStyle = Style.TEXT_PENCIL;
+                    text = cell.pencilString();
+                } else {
+                    if (cell.error) {
+                        textStyle = Style.TEXT_ERROR;
+                    } else if (cell.locked) {
+                        textStyle = Style.TEXT_LOCKED;
+                    } else {
+                        textStyle = Style.TEXT_USER;
+                    }
+                    if (cell.value > 0)
+                        text = Integer.toString(cell.value);
+                }
+                if ((selectX_ != -1) && (selectY_ != -1)) {
+                    if ((i == selectX_) && (j == selectY_)) {
+                        backgroundStyle = Style.BACKGROUND_SELECTED;
+                    } else if (conflicts(i, j, selectX_, selectY_)) {
+                        backgroundStyle = Style.BACKGROUND_CONFLICTED;
+                    }
+                }
+                drawCell(canvas, i, j, backgroundStyle, textStyle, text);
             }
         }
 
-        // Border
-        canvas.drawLine(0, 0, cellSize_ * 9.0f, 0, Style.THICK.paint);
-        canvas.drawLine(0, 0, 0, cellSize_ * 9.0f, Style.THICK.paint);
-        canvas.drawLine(cellSize_ * 9.0f, 0, cellSize_ * 9.0f, cellSize_ * 9.0f, Style.THICK.paint);
-        canvas.drawLine(0, cellSize_ * 9.0f, cellSize_ * 9.0f, cellSize_ * 9.0f, Style.THICK.paint);
-
-        // Vertical lines
-        canvas.drawLine(cellSize_ * 1, 0, cellSize_ * 1, cellSize_ * 9.0f, Style.BLACK.paint);
-        canvas.drawLine(cellSize_ * 2, 0, cellSize_ * 2, cellSize_ * 9.0f, Style.BLACK.paint);
-        canvas.drawLine(cellSize_ * 3, 0, cellSize_ * 3, cellSize_ * 9.0f, Style.THICK.paint);
-        canvas.drawLine(cellSize_ * 4, 0, cellSize_ * 4, cellSize_ * 9.0f, Style.BLACK.paint);
-        canvas.drawLine(cellSize_ * 5, 0, cellSize_ * 5, cellSize_ * 9.0f, Style.BLACK.paint);
-        canvas.drawLine(cellSize_ * 6, 0, cellSize_ * 6, cellSize_ * 9.0f, Style.THICK.paint);
-        canvas.drawLine(cellSize_ * 7, 0, cellSize_ * 7, cellSize_ * 9.0f, Style.BLACK.paint);
-        canvas.drawLine(cellSize_ * 8, 0, cellSize_ * 8, cellSize_ * 9.0f, Style.BLACK.paint);
-
-        // Horizontal lines
-        canvas.drawLine(0, cellSize_ * 1, cellSize_ * 9.0f, cellSize_ * 1, Style.BLACK.paint);
-        canvas.drawLine(0, cellSize_ * 2, cellSize_ * 9.0f, cellSize_ * 2, Style.BLACK.paint);
-        canvas.drawLine(0, cellSize_ * 3, cellSize_ * 9.0f, cellSize_ * 3, Style.THICK.paint);
-        canvas.drawLine(0, cellSize_ * 4, cellSize_ * 9.0f, cellSize_ * 4, Style.BLACK.paint);
-        canvas.drawLine(0, cellSize_ * 5, cellSize_ * 9.0f, cellSize_ * 5, Style.BLACK.paint);
-        canvas.drawLine(0, cellSize_ * 6, cellSize_ * 9.0f, cellSize_ * 6, Style.THICK.paint);
-        canvas.drawLine(0, cellSize_ * 7, cellSize_ * 9.0f, cellSize_ * 7, Style.BLACK.paint);
-        canvas.drawLine(0, cellSize_ * 8, cellSize_ * 9.0f, cellSize_ * 8, Style.BLACK.paint);
-
-        // Buttons at the bottom
-        if (landscape_) {
-            for (int i = 0; i < 9; ++i) {
-                int flags = 0;
-                if (i + 1 == pen_) {
-                    flags = DC_SELECTED;
-                }
-                drawCell(canvas, 10, i, i + 1, flags, "");
-            }
-            canvas.drawLine(cellSize_ * 10.0f, 0, cellSize_ * 10.0f, cellSize_ * 9.0f, Style.THICK.paint);
-            canvas.drawLine(cellSize_ * 11.0f, 0, cellSize_ * 11.0f, cellSize_ * 9.0f, Style.THICK.paint);
-        } else {
-            for (int i = 0; i < 9; ++i) {
-                int flags = 0;
-                if (i + 1 == pen_) {
-                    flags = DC_SELECTED;
-                }
-                drawCell(canvas, i, 10, i + 1, flags, "");
-            }
-            canvas.drawLine(0, cellSize_ * 10.0f, cellSize_ * 9.0f, cellSize_ * 10.0f, Style.THICK.paint);
-            canvas.drawLine(0, cellSize_ * 11.0f, cellSize_ * 9.0f, cellSize_ * 11.0f, Style.THICK.paint);
+        SudokuGame.Cell selectedCell = null;
+        if ((selectX_ != -1) && (selectY_ != -1)) {
+            selectedCell = game_.grid[selectX_][selectY_];
         }
+        for (int j = 0; j < 3; ++j) {
+            for (int i = 0; i < 3; ++i) {
+                int currentValue = (j * 3) + i + 1;
+                String currentValueString = Integer.toString(currentValue);
+
+                Style valueBackgroundStyle = null;
+                Style pencilBackgroundStyle = null;
+                if (selectedCell != null) {
+                    if (selectedCell.value == currentValue) {
+                        valueBackgroundStyle = Style.BACKGROUND_SELECTED;
+                    }
+                    if (selectedCell.pencil[currentValue - 1]) {
+                        pencilBackgroundStyle = Style.BACKGROUND_SELECTED;
+                    }
+                }
+
+                drawCell(canvas, VALUE_POS_X + i, VALUE_POS_Y + j, valueBackgroundStyle, Style.TEXT_BUTTON_VALUE, currentValueString);
+                drawCell(canvas, PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundStyle, Style.TEXT_BUTTON_PENCIL, currentValueString);
+            }
+        }
+
+        drawGrid(canvas, 0, 0, 9);
+        drawGrid(canvas, VALUE_POS_X, VALUE_POS_Y, 3);
+        drawGrid(canvas, PENCIL_POS_X, PENCIL_POS_Y, 3);
+        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Values", ((VALUE_POS_X + 1) * cellSize_) + (cellSize_ / 2), (VALUE_POS_Y * cellSize_) - (cellSize_ / 4));
+        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencil Marks", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
+
+        drawCell(canvas, VALUE_POS_X+1, VALUE_POS_Y+3, null, Style.TEXT_BUTTON_CLEAR, "Clear");
+
+        drawCell(canvas, NEWGAME_POS_X, NEWGAME_POS_Y, null, Style.TEXT_BUTTON_NEWGAME, "New");
     }
+
+    // ----------------------------------------------------------------------------------
+    // Input
 
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -182,31 +323,42 @@ public class SudokuView extends View {
 
             int x = (int) Math.floor(event.getX() / cellSize_);
             int y = (int) Math.floor(event.getY() / cellSize_);
-            if ((x < 9) && (y < 9)) {
-                // Clicking on grid
-                game_.poke(x, y, pen_);
-            } else {
-                // Clicking outside of grid (perhaps in pen area?)
-                if (landscape_) {
-                    if (x > 10) {
-                        pen_ = 0;
-                    } else if (x == 10) {
-                        pen_ = y + 1;
+
+            if ((x < 9) && (y < 15)) {
+                int index = (y * 9) + x;
+                Action action = actions_[index];
+                if (action != null) {
+                    Log.d(TAG, "selecting action " + action.type + " (" + action.x + "," + action.y + ")");
+                    switch (action.type) {
+                        case SELECT:
+                            selectX_ = action.x;
+                            selectY_ = action.y;
+                            break;
+                        case VALUE:
+                            if ((selectX_ != -1) && (selectX_ != -1)) {
+                                game_.setValue(selectX_, selectY_, action.x);
+                            }
+                            break;
+                        case PENCIL:
+                            if ((selectX_ != -1) && (selectX_ != -1)) {
+                                game_.togglePencil(selectX_, selectY_, action.x);
+                            }
+                            break;
+                        case NEWGAME:
+                            newGame();
+                            break;
                     }
                 } else {
-                    if (y > 10) {
-                        pen_ = 0;
-                    } else if (y == 10) {
-                        pen_ = x + 1;
-                    }
+                    Log.d(TAG, "deselecting");
+                    selectX_ = -1;
+                    selectY_ = -1;
                 }
-            }
-            if (pen_ > 9) {
-                pen_ = 9;
             }
 
             invalidate();
         }
         return true;
     }
+
+    // ----------------------------------------------------------------------------------
 }
