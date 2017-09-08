@@ -169,6 +169,7 @@ public class SudokuView extends View {
         arrayAdapter.add("Easy");
         arrayAdapter.add("Medium");
         arrayAdapter.add("Hard");
+//        arrayAdapter.add("Extreme");
         builderSingle.setNegativeButton("cancel", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -189,6 +190,9 @@ public class SudokuView extends View {
                     case 2:
                         difficulty = SudokuGenerator.Difficulty.HARD;
                         break;
+//                    case 3:
+//                        difficulty = SudokuGenerator.Difficulty.EXTREME;
+//                        break;
                     default:
                         difficulty = SudokuGenerator.Difficulty.EASY;
                         break;

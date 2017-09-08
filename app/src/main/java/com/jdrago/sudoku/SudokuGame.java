@@ -57,11 +57,12 @@ public class SudokuGame {
         clear();
 
         SudokuGenerator generator = new SudokuGenerator();
-        int board[][] = generator.nextBoard(difficulty);
+        SudokuGenerator.Board board = generator.generateSudoku(difficulty);
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                if (board[i][j] != 0) {
-                    grid[i][j].value = board[i][j];
+                int v = board.getNumber(i, j);
+                if (v != 0) {
+                    grid[i][j].value = v;
                     grid[i][j].locked = true;
                 }
             }
