@@ -39,13 +39,14 @@ public class SudokuGame {
         grid = new Cell[9][9];
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                clear(i, j);
+                grid[i][j] = new Cell(0, false);
             }
         }
     }
 
     public void clear(int x, int y) {
         grid[x][y] = new Cell(0, false);
+        updateCells();
     }
 
     public void newGame() {

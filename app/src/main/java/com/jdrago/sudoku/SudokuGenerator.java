@@ -32,7 +32,7 @@ public class SudokuGenerator
         int holeCount;
         switch(difficulty) {
             case EASY:
-                holeCount = 49;
+                holeCount = 45;
                 break;
             case MEDIUM:
                 holeCount = 52;
