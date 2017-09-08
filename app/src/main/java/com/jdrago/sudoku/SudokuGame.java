@@ -30,6 +30,7 @@ public class SudokuGame {
     }
 
     Cell grid[][];
+    boolean solved;
 
     public SudokuGame() {
         newGame();
@@ -42,6 +43,7 @@ public class SudokuGame {
                 grid[i][j] = new Cell(0, false);
             }
         }
+        solved = false;
     }
 
     public void clear(int x, int y) {
@@ -141,6 +143,18 @@ public class SudokuGame {
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
                 updateCell(i, j);
+            }
+        }
+
+        solved = true;
+        for (int j = 0; j < 9; ++j) {
+            for (int i = 0; i < 9; ++i) {
+                if(grid[i][j].error) {
+                    solved = false;
+                }
+                if(grid[i][j].value == 0) {
+                    solved = false;
+                }
             }
         }
     }

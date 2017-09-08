@@ -37,6 +37,8 @@ public class SudokuView extends View {
 
         LINE_BLACK_THIN(0xff000000, 0, 0),
         LINE_BLACK_THICK(0xff000000, 0, 1.0f / 15.0f),
+        LINE_GREEN_THIN(0xff00aa00, 0, 0),
+        LINE_GREEN_THICK(0xff00aa00, 0, 1.0f / 15.0f),
 
         TEXT_VALUE(COLOR_VALUE, 0.8f, 0),
         TEXT_PENCIL(COLOR_PENCIL, 0.3f, 0),
@@ -257,11 +259,11 @@ public class SudokuView extends View {
         drawTextCentered(canvas, textStyle.paint, s, px + (cellSize_ / 2), py + (cellSize_ / 2));
     }
 
-    protected void drawGrid(Canvas canvas, int originX, int originY, int size) {
+    protected void drawGrid(Canvas canvas, int originX, int originY, int size, boolean solved) {
         for (int i = 0; i <= size; ++i) {
-            Style style = Style.LINE_BLACK_THIN;
+            Style style = solved ? Style.LINE_GREEN_THIN : Style.LINE_BLACK_THIN;
             if ((i % 3) == 0) {
-                style = Style.LINE_BLACK_THICK;
+                style = solved ? Style.LINE_GREEN_THICK : Style.LINE_BLACK_THICK;
             }
             // Horizontal lines
             canvas.drawLine(cellSize_ * (originX + 0), cellSize_ * (originY + i), cellSize_ * (originX + size), cellSize_ * (originY + i), style.paint);
@@ -337,9 +339,9 @@ public class SudokuView extends View {
             }
         }
 
-        drawGrid(canvas, 0, 0, 9);
-        drawGrid(canvas, VALUE_POS_X, VALUE_POS_Y, 3);
-        drawGrid(canvas, PENCIL_POS_X, PENCIL_POS_Y, 3);
+        drawGrid(canvas, 0, 0, 9, game_.solved);
+        drawGrid(canvas, VALUE_POS_X, VALUE_POS_Y, 3, false);
+        drawGrid(canvas, PENCIL_POS_X, PENCIL_POS_Y, 3, false);
         drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pens", ((VALUE_POS_X + 1) * cellSize_) + (cellSize_ / 2), (VALUE_POS_Y * cellSize_) - (cellSize_ / 4));
         drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencils", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
 
