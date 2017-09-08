@@ -39,9 +39,13 @@ public class SudokuGame {
         grid = new Cell[9][9];
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                grid[i][j] = new Cell(0, false);
+                clear(i, j);
             }
         }
+    }
+
+    public void clear(int x, int y) {
+        grid[x][y] = new Cell(0, false);
     }
 
     public void newGame() {
@@ -51,7 +55,7 @@ public class SudokuGame {
         int board[][] = generator.nextBoard(SudokuGenerator.Difficulty.EASY);
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
-                if(board[i][j] != 0) {
+                if (board[i][j] != 0) {
                     grid[i][j].value = board[i][j];
                     grid[i][j].locked = true;
                 }
@@ -148,12 +152,12 @@ public class SudokuGame {
                     jcell.put("v", cell.value);
                     boolean needsPencil = false;
                     for (int p = 0; p < 9; ++p) {
-                        if(cell.pencil[p]) {
+                        if (cell.pencil[p]) {
                             needsPencil = true;
                             break;
                         }
                     }
-                    if(needsPencil) {
+                    if (needsPencil) {
                         JSONArray jpencil = new JSONArray();
                         for (int p = 0; p < 9; ++p)
                             jpencil.put(cell.pencil[p] ? 1 : 0);
@@ -186,14 +190,14 @@ public class SudokuGame {
                     int value = jcell.optInt("v", 0);
                     cell.value = value;
                     int locked = jcell.optInt("l", 0);
-                    if(locked == 1) {
+                    if (locked == 1) {
                         cell.locked = true;
                     }
                     JSONArray jpencil = jcell.optJSONArray("p");
-                    if(jpencil != null) {
+                    if (jpencil != null) {
                         for (int p = 0; p < 9; ++p) {
                             int pset = jpencil.optInt(p, 0);
-                            if(pset == 1) {
+                            if (pset == 1) {
                                 cell.pencil[p] = true;
                             }
                         }
@@ -204,6 +208,24 @@ public class SudokuGame {
             newGame();
         }
         updateCells();
+    }
+
+    public boolean[] done() {
+        boolean d[] = new boolean[9];
+        int counts[] = new int[9];
+        for (int j = 0; j < 9; ++j) {
+            for (int i = 0; i < 9; ++i) {
+                if(grid[i][j].value != 0) {
+                    ++counts[grid[i][j].value-1];
+                }
+            }
+        }
+        for(int i = 0; i < 9; ++i) {
+            if(counts[i] == 9) {
+                d[i] = true;
+            }
+        }
+        return d;
     }
 
     public void loadOld(String s) {

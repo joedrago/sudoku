@@ -25,11 +25,12 @@ public class SudokuView extends View {
     static final int NEWGAME_POS_X = 6;
     static final int NEWGAME_POS_Y = 13;
 
-    static final int COLOR_VALUE = 0xff339999;
+    static final int COLOR_VALUE = 0xff000000;
     static final int COLOR_PENCIL = 0xff0000ff;
 
     public enum Style {
         BACKGROUND_SELECTED(0xffeeeeaa, 0, 0),
+        BACKGROUND_LOCKED(0xffeeeeee, 0, 0),
         BACKGROUND_CONFLICTED(0xffffffdd, 0, 0),
         BACKGROUND_ERROR(0xffffdddd, 0, 0),
 
@@ -38,13 +39,16 @@ public class SudokuView extends View {
 
         TEXT_VALUE(COLOR_VALUE, 0.8f, 0),
         TEXT_PENCIL(COLOR_PENCIL, 0.3f, 0),
+        TEXT_ERROR(0xffff0000, 0.8f, 0),
         TEXT_GRID_TITLE(0xff000000, 0.3f, 0),
         TEXT_LOCKED(0xff000000, 0.8f, 0),
 
         TEXT_BUTTON_VALUE(COLOR_VALUE, 0.8f, 0),
+        TEXT_BUTTON_DONE(0xffcccccc, 0.8f, 0),
         TEXT_BUTTON_PENCIL(COLOR_PENCIL, 0.8f, 0),
         TEXT_BUTTON_NEWGAME(0xff008833, 0.4f, 0),
-        TEXT_BUTTON_CLEAR(0xff008833, 0.4f, 0);
+        TEXT_BUTTON_CLEAR(0xffcccccc, 0.4f, 0),
+        TEXT_BUTTON_ERROR(0xffff0000, 0.4f, 0);
 
         int color;
         float textScale;
@@ -91,8 +95,8 @@ public class SudokuView extends View {
     // Game
 
     SudokuGame game_;
-    int selectX_;
-    int selectY_;
+    int penValue_;
+    boolean isPencil_;
 
     // ----------------------------------------------------------------------------------
     // Init
@@ -105,8 +109,7 @@ public class SudokuView extends View {
         initActions();
 
         game_ = new SudokuGame();
-        selectX_ = -1;
-        selectY_ = -1;
+        penValue_ = 0;
 
         calcSizes();
     }
@@ -140,7 +143,7 @@ public class SudokuView extends View {
         actions_[index] = new Action(ActionType.NEWGAME, 0, 0);
 
         // Clear value button
-        index = ((VALUE_POS_Y+3) * 9) + VALUE_POS_X+1;
+        index = ((VALUE_POS_Y + 3) * 9) + VALUE_POS_X + 1;
         actions_[index] = new Action(ActionType.VALUE, 0, 0);
     }
 
@@ -167,9 +170,8 @@ public class SudokuView extends View {
                     public void onClick(DialogInterface dialog, int which) {
                         dialog.dismiss();
                         game_.newGame();
+                        penValue_ = 0;
                         invalidate();
-                        selectX_ = -1;
-                        selectY_ = -1;
                     }
                 });
         alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
@@ -268,58 +270,88 @@ public class SudokuView extends View {
                     if (cell.value > 0)
                         text = Integer.toString(cell.value);
                 }
-                if ((selectX_ != -1) && (selectY_ != -1)) {
-                    if ((i == selectX_) && (j == selectY_)) {
-                        backgroundStyle = Style.BACKGROUND_SELECTED;
-                    } else if (conflicts(i, j, selectX_, selectY_)) {
-                        backgroundStyle = Style.BACKGROUND_CONFLICTED;
-                    }
+//                if ((selectX_ != -1) && (selectY_ != -1)) {
+//                    if ((i == selectX_) && (j == selectY_)) {
+//                        backgroundStyle = Style.BACKGROUND_SELECTED;
+//                    } else if (conflicts(i, j, selectX_, selectY_)) {
+//                        backgroundStyle = Style.BACKGROUND_CONFLICTED;
+//                    }
+//                }
+                if(cell.locked) {
+                    backgroundStyle = Style.BACKGROUND_LOCKED;
                 }
-                if(cell.error) {
-                    backgroundStyle = Style.BACKGROUND_ERROR;
+                if (cell.error) {
+                    textStyle = Style.TEXT_ERROR;
                 }
                 drawCell(canvas, i, j, backgroundStyle, textStyle, text);
             }
         }
 
-        SudokuGame.Cell selectedCell = null;
-        if ((selectX_ != -1) && (selectY_ != -1)) {
-            selectedCell = game_.grid[selectX_][selectY_];
-        }
+        boolean done[] = game_.done();
         for (int j = 0; j < 3; ++j) {
             for (int i = 0; i < 3; ++i) {
                 int currentValue = (j * 3) + i + 1;
                 String currentValueString = Integer.toString(currentValue);
+                Style valueStyle = Style.TEXT_BUTTON_VALUE;
+                Style pencilStyle = Style.TEXT_BUTTON_PENCIL;
+                if(done[(j * 3) + i]) {
+                    valueStyle = Style.TEXT_BUTTON_DONE;
+                    pencilStyle = Style.TEXT_BUTTON_DONE;
+                }
 
                 Style valueBackgroundStyle = null;
                 Style pencilBackgroundStyle = null;
-                if (selectedCell != null) {
-                    if (selectedCell.value == currentValue) {
-                        valueBackgroundStyle = Style.BACKGROUND_SELECTED;
-                    }
-                    if (selectedCell.pencil[currentValue - 1]) {
+                if (penValue_ == currentValue) {
+                    if (isPencil_) {
                         pencilBackgroundStyle = Style.BACKGROUND_SELECTED;
+                    } else {
+                        valueBackgroundStyle = Style.BACKGROUND_SELECTED;
                     }
                 }
 
-                drawCell(canvas, VALUE_POS_X + i, VALUE_POS_Y + j, valueBackgroundStyle, Style.TEXT_BUTTON_VALUE, currentValueString);
-                drawCell(canvas, PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundStyle, Style.TEXT_BUTTON_PENCIL, currentValueString);
+                drawCell(canvas, VALUE_POS_X + i, VALUE_POS_Y + j, valueBackgroundStyle, valueStyle, currentValueString);
+                drawCell(canvas, PENCIL_POS_X + i, PENCIL_POS_Y + j, pencilBackgroundStyle, pencilStyle, currentValueString);
             }
         }
 
         drawGrid(canvas, 0, 0, 9);
         drawGrid(canvas, VALUE_POS_X, VALUE_POS_Y, 3);
         drawGrid(canvas, PENCIL_POS_X, PENCIL_POS_Y, 3);
-        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Values", ((VALUE_POS_X + 1) * cellSize_) + (cellSize_ / 2), (VALUE_POS_Y * cellSize_) - (cellSize_ / 4));
-        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencil Marks", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
+        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pens", ((VALUE_POS_X + 1) * cellSize_) + (cellSize_ / 2), (VALUE_POS_Y * cellSize_) - (cellSize_ / 4));
+        drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencils", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
 
-        drawCell(canvas, VALUE_POS_X+1, VALUE_POS_Y+3, null, Style.TEXT_BUTTON_CLEAR, "Clear");
+        Style clearStyle = Style.TEXT_BUTTON_CLEAR;
+        if(penValue_ == 0) {
+            clearStyle = Style.TEXT_BUTTON_ERROR;
+        }
+        drawCell(canvas, VALUE_POS_X + 1, VALUE_POS_Y + 3, null, clearStyle, "Clear");
 
         drawCell(canvas, NEWGAME_POS_X, NEWGAME_POS_Y, null, Style.TEXT_BUTTON_NEWGAME, "New");
     }
 
     // ----------------------------------------------------------------------------------
     // Input
+
+    public void confirmClear(final int x, final int y) {
+        AlertDialog alertDialog = new AlertDialog.Builder(getContext()).create();
+        alertDialog.setTitle("Clear cell?");
+        alertDialog.setMessage("Are you sure you want clear this cell?");
+        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                        game_.clear(x, y);
+                        invalidate();
+                    }
+                });
+        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        alertDialog.show();
+    }
 
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -335,18 +367,23 @@ public class SudokuView extends View {
                     Log.d(TAG, "selecting action " + action.type + " (" + action.x + "," + action.y + ")");
                     switch (action.type) {
                         case SELECT:
-                            selectX_ = action.x;
-                            selectY_ = action.y;
+                            if (penValue_ == 0) {
+                                confirmClear(action.x, action.y);
+                            } else {
+                                if (isPencil_) {
+                                    game_.togglePencil(action.x, action.y, penValue_);
+                                } else {
+                                    game_.setValue(action.x, action.y, penValue_);
+                                }
+                            }
                             break;
                         case VALUE:
-                            if ((selectX_ != -1) && (selectX_ != -1)) {
-                                game_.setValue(selectX_, selectY_, action.x);
-                            }
+                            penValue_ = action.x;
+                            isPencil_ = false;
                             break;
                         case PENCIL:
-                            if ((selectX_ != -1) && (selectX_ != -1)) {
-                                game_.togglePencil(selectX_, selectY_, action.x);
-                            }
+                            penValue_ = action.x;
+                            isPencil_ = true;
                             break;
                         case NEWGAME:
                             newGame();
@@ -354,8 +391,7 @@ public class SudokuView extends View {
                     }
                 } else {
                     Log.d(TAG, "deselecting");
-                    selectX_ = -1;
-                    selectY_ = -1;
+                    penValue_ = 0;
                 }
             }
 
