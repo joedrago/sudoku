@@ -50,10 +50,14 @@ public class SudokuGame {
     }
 
     public void newGame() {
+        newGame(SudokuGenerator.Difficulty.EASY);
+    }
+
+    public void newGame(SudokuGenerator.Difficulty difficulty) {
         clear();
 
         SudokuGenerator generator = new SudokuGenerator();
-        int board[][] = generator.nextBoard(SudokuGenerator.Difficulty.EASY);
+        int board[][] = generator.nextBoard(difficulty);
         for (int j = 0; j < 9; ++j) {
             for (int i = 0; i < 9; ++i) {
                 if (board[i][j] != 0) {

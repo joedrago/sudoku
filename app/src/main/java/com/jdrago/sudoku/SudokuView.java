@@ -11,6 +11,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.ArrayAdapter;
 
 public class SudokuView extends View {
     private static String TAG = "SudokuView";
@@ -162,25 +163,43 @@ public class SudokuView extends View {
     public void newGame() {
         Log.d(TAG, "newGame");
 
-        AlertDialog alertDialog = new AlertDialog.Builder(getContext()).create();
-        alertDialog.setTitle("New Game?");
-        alertDialog.setMessage("Are you sure you want to start a new game?");
-        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                        game_.newGame();
-                        penValue_ = 0;
-                        invalidate();
-                    }
-                });
-        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-        alertDialog.show();
+        AlertDialog.Builder builderSingle = new AlertDialog.Builder(getContext());
+        builderSingle.setTitle("New Game: Select Difficulty:");
+        final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(getContext(), android.R.layout.select_dialog_singlechoice);
+        arrayAdapter.add("Easy");
+        arrayAdapter.add("Medium");
+        arrayAdapter.add("Hard");
+        builderSingle.setNegativeButton("cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+        builderSingle.setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                SudokuGenerator.Difficulty difficulty;
+                switch (which) {
+                    case 0:
+                        difficulty = SudokuGenerator.Difficulty.EASY;
+                        break;
+                    case 1:
+                        difficulty = SudokuGenerator.Difficulty.MEDIUM;
+                        break;
+                    case 2:
+                        difficulty = SudokuGenerator.Difficulty.HARD;
+                        break;
+                    default:
+                        difficulty = SudokuGenerator.Difficulty.EASY;
+                        break;
+                }
+                dialog.dismiss();
+                game_.newGame(difficulty);
+                penValue_ = 0;
+                invalidate();
+            }
+        });
+        builderSingle.show();
     }
 
     // ----------------------------------------------------------------------------------
@@ -277,7 +296,7 @@ public class SudokuView extends View {
 //                        backgroundStyle = Style.BACKGROUND_CONFLICTED;
 //                    }
 //                }
-                if(cell.locked) {
+                if (cell.locked) {
                     backgroundStyle = Style.BACKGROUND_LOCKED;
                 }
                 if (cell.error) {
@@ -294,7 +313,7 @@ public class SudokuView extends View {
                 String currentValueString = Integer.toString(currentValue);
                 Style valueStyle = Style.TEXT_BUTTON_VALUE;
                 Style pencilStyle = Style.TEXT_BUTTON_PENCIL;
-                if(done[(j * 3) + i]) {
+                if (done[(j * 3) + i]) {
                     valueStyle = Style.TEXT_BUTTON_DONE;
                     pencilStyle = Style.TEXT_BUTTON_DONE;
                 }
@@ -321,7 +340,7 @@ public class SudokuView extends View {
         drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencils", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
 
         Style clearStyle = Style.TEXT_BUTTON_CLEAR;
-        if(penValue_ == 0) {
+        if (penValue_ == 0) {
             clearStyle = Style.TEXT_BUTTON_ERROR;
         }
         drawCell(canvas, VALUE_POS_X + 1, VALUE_POS_Y + 3, null, clearStyle, "Clear");
