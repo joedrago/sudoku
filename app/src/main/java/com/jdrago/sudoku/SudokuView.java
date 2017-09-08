@@ -18,28 +18,31 @@ public class SudokuView extends View {
     // ----------------------------------------------------------------------------------
     // Render
 
-    private final int VALUE_POS_X = 1;
-    private final int VALUE_POS_Y = 10;
-    private final int PENCIL_POS_X = 5;
-    private final int PENCIL_POS_Y = 10;
-    private final int NEWGAME_POS_X = 6;
-    private final int NEWGAME_POS_Y = 13;
+    static final int VALUE_POS_X = 1;
+    static final int VALUE_POS_Y = 10;
+    static final int PENCIL_POS_X = 5;
+    static final int PENCIL_POS_Y = 10;
+    static final int NEWGAME_POS_X = 6;
+    static final int NEWGAME_POS_Y = 13;
+
+    static final int COLOR_VALUE = 0xff339999;
+    static final int COLOR_PENCIL = 0xff0000ff;
 
     public enum Style {
         BACKGROUND_SELECTED(0xffeeeeaa, 0, 0),
         BACKGROUND_CONFLICTED(0xffffffdd, 0, 0),
+        BACKGROUND_ERROR(0xffffdddd, 0, 0),
 
         LINE_BLACK_THIN(0xff000000, 0, 0),
         LINE_BLACK_THICK(0xff000000, 0, 1.0f / 15.0f),
 
+        TEXT_VALUE(COLOR_VALUE, 0.8f, 0),
+        TEXT_PENCIL(COLOR_PENCIL, 0.3f, 0),
         TEXT_GRID_TITLE(0xff000000, 0.3f, 0),
         TEXT_LOCKED(0xff000000, 0.8f, 0),
-        TEXT_USER(0xff003333, 0.8f, 0),
-        TEXT_ERROR(0xffff0000, 0.8f, 0),
-        TEXT_PENCIL(0xff0000ff, 0.3f, 0),
 
-        TEXT_BUTTON_VALUE(0xff003333, 0.8f, 0),
-        TEXT_BUTTON_PENCIL(0xff0000ff, 0.8f, 0),
+        TEXT_BUTTON_VALUE(COLOR_VALUE, 0.8f, 0),
+        TEXT_BUTTON_PENCIL(COLOR_PENCIL, 0.8f, 0),
         TEXT_BUTTON_NEWGAME(0xff008833, 0.4f, 0),
         TEXT_BUTTON_CLEAR(0xff008833, 0.4f, 0);
 
@@ -257,12 +260,10 @@ public class SudokuView extends View {
                     textStyle = Style.TEXT_PENCIL;
                     text = cell.pencilString();
                 } else {
-                    if (cell.error) {
-                        textStyle = Style.TEXT_ERROR;
-                    } else if (cell.locked) {
+                    if (cell.locked) {
                         textStyle = Style.TEXT_LOCKED;
                     } else {
-                        textStyle = Style.TEXT_USER;
+                        textStyle = Style.TEXT_VALUE;
                     }
                     if (cell.value > 0)
                         text = Integer.toString(cell.value);
@@ -273,6 +274,9 @@ public class SudokuView extends View {
                     } else if (conflicts(i, j, selectX_, selectY_)) {
                         backgroundStyle = Style.BACKGROUND_CONFLICTED;
                     }
+                }
+                if(cell.error) {
+                    backgroundStyle = Style.BACKGROUND_ERROR;
                 }
                 drawCell(canvas, i, j, backgroundStyle, textStyle, text);
             }
