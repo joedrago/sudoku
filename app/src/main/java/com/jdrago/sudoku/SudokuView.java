@@ -21,9 +21,15 @@ public class SudokuView extends View {
 
     static final int VALUE_POS_X = 1;
     static final int VALUE_POS_Y = 10;
+    static final int VALUE_CLEAR_POS_X = 2;
+    static final int VALUE_CLEAR_POS_Y = 13;
+
     static final int PENCIL_POS_X = 5;
     static final int PENCIL_POS_Y = 10;
-    static final int NEWGAME_POS_X = 6;
+    static final int PENCIL_CLEAR_POS_X = 6;
+    static final int PENCIL_CLEAR_POS_Y = 13;
+
+    static final int NEWGAME_POS_X = 4;
     static final int NEWGAME_POS_Y = 13;
 
     static final int COLOR_VALUE = 0xff000000;
@@ -32,6 +38,8 @@ public class SudokuView extends View {
     public enum Style {
         BACKGROUND_SELECTED(0xffeeeeaa, 0, 0),
         BACKGROUND_LOCKED(0xffeeeeee, 0, 0),
+        BACKGROUND_LOCKED_CONFLICTED(0xffffffee, 0, 0),
+        BACKGROUND_LOCKED_SELECTED(0xffeeeedd, 0, 0),
         BACKGROUND_CONFLICTED(0xffffffdd, 0, 0),
         BACKGROUND_ERROR(0xffffdddd, 0, 0),
 
@@ -50,8 +58,8 @@ public class SudokuView extends View {
         TEXT_BUTTON_DONE(0xffcccccc, 0.8f, 0),
         TEXT_BUTTON_PENCIL(COLOR_PENCIL, 0.8f, 0),
         TEXT_BUTTON_NEWGAME(0xff008833, 0.4f, 0),
-        TEXT_BUTTON_CLEAR(0xffcccccc, 0.4f, 0),
-        TEXT_BUTTON_ERROR(0xffff0000, 0.4f, 0);
+        //        TEXT_BUTTON_HIGHLIGHT(0xffcccccc, 0.4f, 0),
+        TEXT_BUTTON_CLEAR(0xffff0000, 0.5f, 0);
 
         int color;
         float textScale;
@@ -100,6 +108,8 @@ public class SudokuView extends View {
     SudokuGame game_;
     int penValue_;
     boolean isPencil_;
+    int highlightX_;
+    int highlightY_;
 
     // ----------------------------------------------------------------------------------
     // Init
@@ -113,6 +123,8 @@ public class SudokuView extends View {
 
         game_ = new SudokuGame();
         penValue_ = 0;
+        highlightX_ = -1;
+        highlightY_ = -1;
 
         calcSizes();
     }
@@ -141,13 +153,21 @@ public class SudokuView extends View {
             }
         }
 
+        // Value clear button
+        int index = (VALUE_CLEAR_POS_Y * 9) + VALUE_CLEAR_POS_X;
+        actions_[index] = new Action(ActionType.VALUE, 10, 0);
+
+        // Pencil clear button
+        index = (PENCIL_CLEAR_POS_Y * 9) + PENCIL_CLEAR_POS_X;
+        actions_[index] = new Action(ActionType.PENCIL, 10, 0);
+
         // New Game button
-        int index = (NEWGAME_POS_Y * 9) + NEWGAME_POS_X;
+        index = (NEWGAME_POS_Y * 9) + NEWGAME_POS_X;
         actions_[index] = new Action(ActionType.NEWGAME, 0, 0);
 
-        // Clear value button
-        index = ((VALUE_POS_Y + 3) * 9) + VALUE_POS_X + 1;
-        actions_[index] = new Action(ActionType.VALUE, 0, 0);
+        // Highlight button
+//        index = ((VALUE_POS_Y + 3) * 9) + VALUE_POS_X + 1;
+//        actions_[index] = new Action(ActionType.VALUE, 0, 0);
     }
 
     // ----------------------------------------------------------------------------------
@@ -202,6 +222,8 @@ public class SudokuView extends View {
                 dialog.dismiss();
                 game_.newGame(difficulty);
                 penValue_ = 0;
+                highlightX_ = -1;
+                highlightY_ = -1;
                 invalidate();
             }
         });
@@ -262,7 +284,7 @@ public class SudokuView extends View {
     protected void drawGrid(Canvas canvas, int originX, int originY, int size, boolean solved) {
         for (int i = 0; i <= size; ++i) {
             Style style = solved ? Style.LINE_GREEN_THIN : Style.LINE_BLACK_THIN;
-            if ((i % 3) == 0) {
+            if ((size == 1) || (i % 3) == 0) {
                 style = solved ? Style.LINE_GREEN_THICK : Style.LINE_BLACK_THICK;
             }
             // Horizontal lines
@@ -295,15 +317,23 @@ public class SudokuView extends View {
                     if (cell.value > 0)
                         text = Integer.toString(cell.value);
                 }
-//                if ((selectX_ != -1) && (selectY_ != -1)) {
-//                    if ((i == selectX_) && (j == selectY_)) {
-//                        backgroundStyle = Style.BACKGROUND_SELECTED;
-//                    } else if (conflicts(i, j, selectX_, selectY_)) {
-//                        backgroundStyle = Style.BACKGROUND_CONFLICTED;
-//                    }
-//                }
                 if (cell.locked) {
                     backgroundStyle = Style.BACKGROUND_LOCKED;
+                }
+                if ((highlightX_ != -1) && (highlightY_ != -1)) {
+                    if ((i == highlightX_) && (j == highlightY_)) {
+                        if (cell.locked) {
+                            backgroundStyle = Style.BACKGROUND_LOCKED_SELECTED;
+                        } else {
+                            backgroundStyle = Style.BACKGROUND_SELECTED;
+                        }
+                    } else if (conflicts(i, j, highlightX_, highlightY_)) {
+                        if (cell.locked) {
+                            backgroundStyle = Style.BACKGROUND_LOCKED_CONFLICTED;
+                        } else {
+                            backgroundStyle = Style.BACKGROUND_CONFLICTED;
+                        }
+                    }
                 }
                 if (cell.error) {
                     textStyle = Style.TEXT_ERROR;
@@ -339,17 +369,31 @@ public class SudokuView extends View {
             }
         }
 
+        Style valueBackgroundStyle = null;
+        Style pencilBackgroundStyle = null;
+        if (penValue_ == 10) {
+            if (isPencil_) {
+                pencilBackgroundStyle = Style.BACKGROUND_SELECTED;
+            } else {
+                valueBackgroundStyle = Style.BACKGROUND_SELECTED;
+            }
+        }
+        drawCell(canvas, VALUE_CLEAR_POS_X, VALUE_CLEAR_POS_Y, valueBackgroundStyle, Style.TEXT_BUTTON_CLEAR, "C");
+        drawCell(canvas, PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, pencilBackgroundStyle, Style.TEXT_BUTTON_CLEAR, "C");
+
         drawGrid(canvas, 0, 0, 9, game_.solved);
         drawGrid(canvas, VALUE_POS_X, VALUE_POS_Y, 3, false);
         drawGrid(canvas, PENCIL_POS_X, PENCIL_POS_Y, 3, false);
+        drawGrid(canvas, VALUE_CLEAR_POS_X, VALUE_CLEAR_POS_Y, 1, false);
+        drawGrid(canvas, PENCIL_CLEAR_POS_X, PENCIL_CLEAR_POS_Y, 1, false);
         drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pens", ((VALUE_POS_X + 1) * cellSize_) + (cellSize_ / 2), (VALUE_POS_Y * cellSize_) - (cellSize_ / 4));
         drawTextCentered(canvas, Style.TEXT_GRID_TITLE.paint, "Pencils", ((PENCIL_POS_X + 1) * cellSize_) + (cellSize_ / 2), (PENCIL_POS_Y * cellSize_) - (cellSize_ / 4));
 
-        Style clearStyle = Style.TEXT_BUTTON_CLEAR;
-        if (penValue_ == 0) {
-            clearStyle = Style.TEXT_BUTTON_ERROR;
-        }
-        drawCell(canvas, VALUE_POS_X + 1, VALUE_POS_Y + 3, null, clearStyle, "Clear");
+//        Style highlightStyle = Style.TEXT_BUTTON_HIGHLIGHT;
+//        if (penValue_ == 0) {
+//            highlightStyle = Style.TEXT_BUTTON_ERROR;
+//        }
+//        drawCell(canvas, VALUE_POS_X + 1, VALUE_POS_Y + 3, null, highlightStyle, "Highlight");
 
         drawCell(canvas, NEWGAME_POS_X, NEWGAME_POS_Y, null, Style.TEXT_BUTTON_NEWGAME, "New");
     }
@@ -393,12 +437,21 @@ public class SudokuView extends View {
                     switch (action.type) {
                         case SELECT:
                             if (penValue_ == 0) {
-                                confirmClear(action.x, action.y);
+                                highlightX_ = action.x;
+                                highlightY_ = action.y;
                             } else {
                                 if (isPencil_) {
-                                    game_.togglePencil(action.x, action.y, penValue_);
+                                    if (penValue_ == 10) {
+                                        game_.clearPencil(action.x, action.y);
+                                    } else {
+                                        game_.togglePencil(action.x, action.y, penValue_);
+                                    }
                                 } else {
-                                    game_.setValue(action.x, action.y, penValue_);
+                                    if (penValue_ == 10) {
+                                        game_.setValue(action.x, action.y, 0);
+                                    } else {
+                                        game_.setValue(action.x, action.y, penValue_);
+                                    }
                                 }
                             }
                             break;
@@ -417,6 +470,8 @@ public class SudokuView extends View {
                 } else {
                     Log.d(TAG, "deselecting");
                     penValue_ = 0;
+                    highlightX_ = -1;
+                    highlightY_ = -1;
                 }
             }
 

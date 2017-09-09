@@ -89,6 +89,16 @@ public class SudokuGame {
         updateCells();
     }
 
+    public void clearPencil(int x, int y) {
+        Cell cell = grid[x][y];
+        if (!cell.locked) {
+            for (int p = 0; p < 9; ++p) {
+                cell.pencil[p] = false;
+            }
+        }
+        updateCells();
+    }
+
     public void updateCell(int x, int y) {
         Cell cell = grid[x][y];
 
