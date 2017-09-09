@@ -437,8 +437,13 @@ public class SudokuView extends View {
                     switch (action.type) {
                         case SELECT:
                             if (penValue_ == 0) {
-                                highlightX_ = action.x;
-                                highlightY_ = action.y;
+                                if((highlightX_ == action.x) && (highlightY_ == action.y)) {
+                                    highlightX_ = -1;
+                                    highlightY_ = -1;
+                                } else {
+                                    highlightX_ = action.x;
+                                    highlightY_ = action.y;
+                                }
                             } else {
                                 if (isPencil_) {
                                     if (penValue_ == 10) {
